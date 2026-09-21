@@ -1,0 +1,13 @@
+{
+  "python.defaultInterpreterPath": "D:\\python\\envs\\jotang-ml\\python.exe",
+  "python.terminal.activateEnvironment": false,
+  "python-envs.defaultEnvManager": "ms-python.python:conda",
+  "python-envs.defaultPackageManager": "ms-python.python:conda",
+  "terminal.integrated.profiles.windows": {
+    "PowerShell (跳过 profile)": {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "args": ["-NoProfile"]
+    }
+  },
+  "terminal.integrated.defaultProfile.windows": "PowerShell (跳过 profile)"
+}
