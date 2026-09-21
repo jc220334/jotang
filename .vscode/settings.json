@@ -3,6 +3,7 @@
   "python.terminal.activateEnvironment": false,
   "python-envs.defaultEnvManager": "ms-python.python:conda",
   "python-envs.defaultPackageManager": "ms-python.python:conda",
+  "git.useEditorAsCommitInput": false,
   "terminal.integrated.profiles.windows": {
     "PowerShell (跳过 profile)": {
       "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
