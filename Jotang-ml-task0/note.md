@@ -232,5 +232,6 @@ print(Z, A, sep="\n")
 - 训练循环：前向 → 损失 → 反向 → 优化器更新
 - 训练好、测试差 → 过拟合，用正则化 / 更多数据缓解
 ### 矩阵乘法
-
-<img width="936" height="334" alt="0C1F6827AB471BCCE85753858FE51F3A" src="https://github.com/user-attachments/assets/f11560e8-2a33-4bbf-b68a-1f2d07492818" />
+<img width="804" height="393" alt="332FC319F16D3707845103E840194D61" src="https://github.com/user-attachments/assets/019ec86d-b55c-4fc6-aea4-c7799645aec0" />
+1.np.array()构建矩阵
+2.
