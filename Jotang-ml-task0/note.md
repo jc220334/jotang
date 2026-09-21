@@ -34,6 +34,58 @@ python check_torch.py
 需要改用 PyTorch 官方的 CUDA 包索引，并保证本机 NVIDIA 驱动版本匹配。
 Task 0 不需要 GPU，所以当前这套 CPU 安装已经足够。
 
+## 环境与硬件概念问答
+
+> 对应作业要求：搭建完环境后，在笔记中简要回答下面三个问题。
+
+### 1. 为什么不同项目最好使用不同的 Python 虚拟环境？
+
+- **依赖会打架**：不同项目常要求同一个库的不同版本（一个要 NumPy 1.x、另一个要 2.x，或者必须锁死某个 PyTorch 版本）。虚拟环境让每个项目有独立的 `site-packages`，装新版不会把别的项目装坏。
+- **结果可复现**：环境把「Python 版本 + 每个包的版本」固定成一套组合，用 `requirements.txt` 或 `conda env export` 记下来，别人（或几个月后的自己）能原样重建。
+- **系统 Python 保持干净**：不往全局环境堆包，就不会污染系统工具，也少遇到装包要管理员权限的问题。
+- **试错成本低**：想试新版本或实验性依赖，在单独环境里折腾，崩了删掉重建即可，其它项目不受影响。
+
+本机就是例子：`base` 里有 Jupyter/notebook，`jotang-ml` 里有 PyTorch，两者互不干扰；本次作业用 `conda activate jotang-ml` 切到专属环境。一句话概括：**虚拟环境解决的是「隔离」与「复现」**。
+
+### 2. CPU 和 GPU 各自擅长什么？训练神经网络为什么经常使用 GPU？
+
+| | CPU | GPU |
+| --- | --- | --- |
+| 核心 | 少而强，常见 4~16 个复杂核心 | 多而简单，上千个流处理器 |
+| 擅长 | 串行逻辑、分支判断、延迟敏感的任务 | 同一套运算作用在大量数据上的并行计算 |
+| 典型工作 | 操作系统、编译、文件读写、小规模计算 | 矩阵乘法、卷积、逐元素运算、图形渲染 |
+| 短板 | 并行吞吐低 | 单核逻辑弱、显存有限、频繁搬数据有开销 |
+
+训练神经网络经常用 GPU，原因有三层：
+
+1. **核心运算天然可并行**：全连接层是矩阵乘法 $Z = XW + b$，卷积层是滑窗上的乘加，本质都是大量互不依赖的乘加。
+2. **前向和反向都是成批的大矩阵运算**：一个 mini-batch 里各样本的计算彼此独立，可以一次算完；反向传播求梯度同样是矩阵运算。
+3. **吞吐差距很大**：同样一次矩阵运算，GPU 的算力和显存带宽通常比 CPU 高出一到两个数量级，训练时间可能从几天缩到几小时。
+
+反过来，模型和数据都很小的时候，往 GPU 搬数据的开销可能比省下的时间还多，这时 CPU 反而更合适；数据加载和预处理这类活也仍然由 CPU 承担。
+
+### 3. CUDA 是什么？它、显卡驱动与 PyTorch 之间大致是什么关系？
+
+**CUDA**（Compute Unified Device Architecture）是 NVIDIA 的 GPU 通用并行计算平台：它让程序不只用 GPU 画图，还能拿 GPU 来算矩阵、跑神经网络，并提供了 cuBLAS、cuDNN 这类底层数值库。它既不是硬件也不是驱动，而是一层「把 GPU 当作并行计算设备来用」的平台和编程模型。
+
+从上到下可以这样理解：
+
+```text
+PyTorch（框架，调用 cuBLAS / cuDNN 等 GPU 算子）
+        ↑
+CUDA 运行时 / CUDA Toolkit（GPU 算子与运行库）
+        ↑
+NVIDIA 显卡驱动（让系统和 CUDA 能驱动这块卡）
+        ↑
+物理 GPU（NVIDIA 显卡）
+```
+
+- **驱动**是所有 GPU 应用的底座，它决定这台机器**最高**能支持到哪个 CUDA 版本。`nvidia-smi` 右上角显示的 `CUDA Version`（本机 12.5）就是这个上限，而不是「已经安装的 CUDA 版本」。
+- **CUDA 运行时**是 GPU 算子依赖的库；PyTorch 的 CUDA 版 wheel（如 cu121、cu124）自带它，所以只要**驱动够新**，一般不需要再单独装完整的 CUDA Toolkit。
+- **三者要版本匹配**：wheel 需要的 CUDA 版本不能超过驱动支持的上限，驱动也要满足该 wheel 的最低要求；装成 CPU 版 wheel 时，`torch.cuda.is_available()` 会返回 `False`。
+
+本机情况：显卡是 **NVIDIA GeForce RTX 4060 Laptop（8 GB 显存）**，驱动 **555.99**、支持到 **CUDA 12.5**；但 `jotang-ml` 里装的是清华镜像提供的 CPU wheel（`2.6.0+cpu`），所以 `torch.cuda.is_available()` 为 `False`。要用 GPU 训练，需要换成 PyTorch 官方 CUDA 索引上的 CUDA 版 wheel（cu121 / cu124 都在驱动上限之内，不用动驱动）；换用 AMD 显卡则对应 ROCm 路线、Apple 芯片对应 MPS，CUDA 只适用于 NVIDIA。
+
 ## hello_ml.py 代码解析<img width="936" height="334" alt="0C1F6827AB471BCCE85753858FE51F3A" src="https://github.com/user-attachments/assets/335aa367-f27e-4089-a9f3-a8e9474acd81" />
 
 
