@@ -1,5 +1,3 @@
-"""Create two NumPy matrices and perform matrix multiplication."""
-
 import numpy as np
 
 
