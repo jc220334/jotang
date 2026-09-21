@@ -30,7 +30,8 @@ A CUDA-enabled wheel requires the PyTorch CUDA package index and a compatible
 NVIDIA driver. This CPU installation is sufficient for Task 0 when GPU support
 is not required.
 
-## hello_ml.py 代码解析
+## hello_ml.py 代码解析<img width="936" height="334" alt="0C1F6827AB471BCCE85753858FE51F3A" src="https://github.com/user-attachments/assets/335aa367-f27e-4089-a9f3-a8e9474acd81" />
+
 
 ### 1. `def analyze_scores(scores):`
 
@@ -68,7 +69,7 @@ is not required.
 | --- | --- | --- |
 | 数据 | 有标签 $(x, y)$ | 只有 $x$ |
 | 目标 | 学 $x \to y$ 的映射 | 发现数据内在结构 |
-| 典型任务 | 分类、回归 | 聚类、降维、异常检测 |<img width="804" height="393" alt="332FC319F16D3707845103E840194D61" src="https://github.com/user-attachments/assets/97562f54-def8-4cb6-87bb-b852a50342c0" />
+| 典型任务 | 分类、回归 | 聚类、降维、异常检测 |
 
 | 例子 | 用标注过的邮件训练垃圾邮件分类器（分类）；用面积、位置预测房价（回归） | 把用户按购买行为聚成几群做运营（聚类）；用 PCA 把高维特征压到二维可视化（降维） |
 
