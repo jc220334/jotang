@@ -231,4 +231,6 @@ print(Z, A, sep="\n")
 - 全连接层：$Z = XW + b$，再接激活 $A = \sigma(Z)$
 - 训练循环：前向 → 损失 → 反向 → 优化器更新
 - 训练好、测试差 → 过拟合，用正则化 / 更多数据缓解
+### 矩阵乘法
+
 <img width="936" height="334" alt="0C1F6827AB471BCCE85753858FE51F3A" src="https://github.com/user-attachments/assets/f11560e8-2a33-4bbf-b68a-1f2d07492818" />
