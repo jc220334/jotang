@@ -233,11 +233,12 @@ print(Z, A, sep="\n")
 - 训练好、测试差 → 过拟合，用正则化 / 更多数据缓解
 ### 矩阵乘法
 <img width="804" height="393" alt="332FC319F16D3707845103E840194D61" src="https://github.com/user-attachments/assets/019ec86d-b55c-4fc6-aea4-c7799645aec0" />
-## np.array()
+
+### np.array()
 构建矩阵
-## a@b  
+### a@b  
 矩阵乘法，必须保证a的列数必须等于b的行数
-## assert a.shape[1] == b.shape[0], "Matrix dimensions do not match"
+### assert a.shape[1] == b.shape[0], "Matrix dimensions do not match"
 判断矩阵乘法是否成立
-## assert np.array_equal(result, expected), "Unexpected matrix multiplication result"
+### assert np.array_equal(result, expected), "Unexpected matrix multiplication result"
 检查经过乘法的矩阵与预想矩阵是否完全相同
