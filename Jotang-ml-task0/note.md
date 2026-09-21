@@ -1,34 +1,38 @@
 # Jotang ML Task 0
 
-## Environment
+## Environment 环境信息
 
 - Python: 3.11.16
-- Conda environment: `jotang-ml`
-- PyTorch: 2.6.0 (CPU wheel)
+- Conda environment（conda 环境）: `jotang-ml`
+- PyTorch: 2.6.0 (CPU wheel，CPU 版)
 
-## Install dependencies with the Tsinghua mirror
+## Install dependencies with the Tsinghua mirror 用清华镜像安装依赖
 
 ```cmd
 conda activate jotang-ml
 python -m pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
-## Run the environment check
+先用 conda 激活 `jotang-ml` 环境，再让 pip 按 `requirements.txt` 安装依赖。
+`-i https://pypi.tuna.tsinghua.edu.cn/simple` 指定清华 PyPI 镜像，国内下载更快、也不容易超时。
+
+## Run the environment check 运行环境自检
 
 ```cmd
 set PYTHONUTF8=1
 python check_torch.py
 ```
 
-The script prints Python, PyTorch, NumPy, Matplotlib, and scikit-learn versions,
-checks CUDA availability, and runs a tensor matrix multiplication.
+`set PYTHONUTF8=1` 让 Python 以 UTF-8 输出，避免 Windows 控制台出现中文乱码。
 
-## GPU note
+脚本 `check_torch.py` 会打印 Python、PyTorch、NumPy、Matplotlib、scikit-learn 的版本号，
+检查 CUDA 是否可用，并跑一次 tensor 矩阵乘法验证环境是否正常。
 
-For Windows, the Tsinghua PyPI mirror currently provides the CPU PyTorch wheel.
-A CUDA-enabled wheel requires the PyTorch CUDA package index and a compatible
-NVIDIA driver. This CPU installation is sufficient for Task 0 when GPU support
-is not required.
+## GPU note 关于 GPU
+
+在 Windows 上，清华 PyPI 镜像目前只提供 CPU 版的 PyTorch wheel；想装 CUDA 版，
+需要改用 PyTorch 官方的 CUDA 包索引，并保证本机 NVIDIA 驱动版本匹配。
+Task 0 不需要 GPU，所以当前这套 CPU 安装已经足够。
 
 ## hello_ml.py 代码解析<img width="936" height="334" alt="0C1F6827AB471BCCE85753858FE51F3A" src="https://github.com/user-attachments/assets/335aa367-f27e-4089-a9f3-a8e9474acd81" />
 
