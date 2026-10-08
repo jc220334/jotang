@@ -34,25 +34,6 @@ python check_torch.py
 需要改用 PyTorch 官方的 CUDA 包索引，并保证本机 NVIDIA 驱动版本匹配。
 Task 0 不需要 GPU，所以当前这套 CPU 安装已经足够。
 
-## hello_ml.py 代码解析<img width="936" height="334" alt="0C1F6827AB471BCCE85753858FE51F3A" src="https://github.com/user-attachments/assets/335aa367-f27e-4089-a9f3-a8e9474acd81" />
-
-
-### 1. `def analyze_scores(scores):`
-
-定义函数 `analyze_scores`，把字典 `scores` 传入函数。
-
-### 2. `if not scores:` 与 `raise ValueError("成绩数据不能为空")`
-
-判断字典是否为空，若为空则提示「成绩数据不能为空」。
-
-### 3. `sum(scores.values()) / len(scores)`
-
-`sum` 求字典中成绩数值的总和，`len` 求字典中人数，相除得到平均成绩。
-
-### 4. `key=scores.get`
-
-表示按对应的值去比较（`max` 用它找出成绩最高的人）。
-
 ## 入门笔记：机器学习基础概念
 
 > 读完学习资料后用自己的话整理的笔记，对应作业「1. 整理一份入门笔记」。
@@ -235,6 +216,26 @@ print(Z, A, sep="\n")
 - 全连接层：$Z = XW + b$，再接激活 $A = \sigma(Z)$
 - 训练循环：前向 → 损失 → 反向 → 优化器更新
 - 训练好、测试差 → 过拟合，用正则化 / 更多数据缓解
+## hello_ml.py 代码解析<img width="936" height="334" alt="0C1F6827AB471BCCE85753858FE51F3A" src="https://github.com/user-attachments/assets/335aa367-f27e-4089-a9f3-a8e9474acd81" />
+
+
+### 1. `def analyze_scores(scores):`
+
+定义函数 `analyze_scores`，把字典 `scores` 传入函数。
+
+### 2. `if not scores:` 与 `raise ValueError("成绩数据不能为空")`
+
+判断字典是否为空，若为空则提示「成绩数据不能为空」。
+
+### 3. `sum(scores.values()) / len(scores)`
+
+`sum` 求字典中成绩数值的总和，`len` 求字典中人数，相除得到平均成绩。
+
+### 4. `key=scores.get`
+
+表示按对应的值去比较（`max` 用它找出成绩最高的人）。
+
+
 ### 矩阵乘法
 <img width="804" height="393" alt="332FC319F16D3707845103E840194D61" src="https://github.com/user-attachments/assets/019ec86d-b55c-4fc6-aea4-c7799645aec0" />
 
