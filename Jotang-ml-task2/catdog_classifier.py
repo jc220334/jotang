@@ -558,6 +558,37 @@ class CatDogCNN(nn.Module):
         return self.head(self.features(x))
 
 
+# ------------------------------------------------------------------
+# 对照组：不用卷积、直接堆全连接层的“朴素”做法（思考题 1 用）
+# ------------------------------------------------------------------
+class MLPBaseline(nn.Module):
+    """把 (3,128,128) 直接铺平成 49152 维向量，接一层巨大的全连接层。
+
+    这是"不利用图像结构"的极端做法：每个输入像素到每个隐藏单元都有一条独立权重，
+    既没有局部连接、也没有权重共享，因此参数量 = 49152 × hidden。
+    hidden=512 时是 25.2 M 参数（CNN 的 23 倍）；hidden=22 时约 1.08 M，正好和 CNN 参数量相当。
+    """
+
+    def __init__(self, hidden=512, dropout=0.0, nclass=2, in_size=IMG):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Flatten(),
+            nn.Dropout(dropout),
+            nn.Linear(3 * in_size * in_size, hidden),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden, nclass),
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+
+def build_model(kind="cnn", width=32, hidden=512, dropout=0.0, nclass=2):
+    if kind == "mlp":
+        return MLPBaseline(hidden=hidden, dropout=dropout, nclass=nclass)
+    return CatDogCNN(width=width, dropout=dropout, nclass=nclass)
+
+
 def stage_arch():
     section("任务 3 / 4 / 9：CNN 结构、各层 Tensor 形状、模型结构图")
     set_seed()
@@ -1000,20 +1031,32 @@ def predict_all(model, loader, tta=False):
 
 def save_checkpoint(path, model, args, norm, hist, extra=None):
     obj = {"state": model.state_dict(),
-           "arch": {"width": args.width, "dropout": args.dropout},
+           "arch": {"kind": args.arch, "width": args.width, "hidden": args.hidden,
+                    "dropout": args.dropout},
            "img": IMG, "classes": CLASSES, "norm": norm,
            "args": {k: v for k, v in vars(args).items()},
            "history": hist}
     if extra:
         obj.update(extra)
-    torch.save(obj, path)
+    last = None
+    for _ in range(3):                       # 偶发文件被占用（杀毒/索引）时重试，别让训练白跑
+        try:
+            torch.save(obj, path)
+            return True
+        except Exception as e:               # noqa: BLE001
+            last = e
+            time.sleep(1.5)
+    print(f"    [警告] 保存 {path} 失败：{last}")
+    return False
 
 
 def stage_train(args):
     if args.aug.strip().lower() in ("", "none", "no"):
         args.aug = ""                                            # 从命令行传空串容易丢，用 none 代替
     section(f"训练：tag={args.tag}  aug='{args.aug}'  epochs={args.epochs}  "
-            f"dropout={args.dropout}  label_smoothing={args.ls}  subset={args.subset}")
+            f"dropout={args.dropout}  label_smoothing={args.ls}  subset={args.subset}\n"
+            f"       模型 arch={args.arch}"
+            + (f"（隐藏层 {args.hidden} 维）" if args.arch == "mlp" else f"（width={args.width}）"))
     _os.makedirs(RUN_DIR, exist_ok=True)
     t_start = time.time()
     torch.set_num_threads(args.threads)
@@ -1047,7 +1090,12 @@ def stage_train(args):
 
     print(f"  训练集 {len(tr_idx)} 张，验证集 {len(va_idx)} 张，"
           f"batch={args.batch}，num_workers={args.workers}，torch 线程数 {args.threads}")
-    model = CatDogCNN(width=args.width, dropout=args.dropout)
+    model = build_model(kind=args.arch, width=args.width, hidden=args.hidden,
+                        dropout=args.dropout)
+    n_par = sum(p.numel() for p in model.parameters())
+    print(f"  参数量 {n_par / 1e6:.3f} M")
+    if n_par > 20e6:
+        print(f"  （参数量超过 20 M，权重文件会超过 100 MB，只记录训练曲线、不保存权重）")
     if args.channels_last:
         model = model.to(memory_format=torch.channels_last)
     opt = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.wd)
@@ -1070,8 +1118,11 @@ def stage_train(args):
         flag = ""
         if va_acc > best_acc:
             best_acc, best_ep = va_acc, ep
-            save_checkpoint(_os.path.join(RUN_DIR, f"{args.tag}.pth"), model, args, norm, hist)
-            flag = " ← 目前最好，已保存权重"
+            if n_par <= 20e6:
+                save_checkpoint(_os.path.join(RUN_DIR, f"{args.tag}.pth"), model, args, norm, hist)
+                flag = " ← 目前最好，已保存权重"
+            else:
+                flag = " ← 目前最好（参数太多，只记曲线不存权重）"
         print(f"    epoch {ep:2d}/{args.epochs}  train loss {tr_loss:.4f} acc {tr_acc:.4f} | "
               f"val loss {va_loss:.4f} acc {va_acc:.4f}  ({time.time() - t0:.1f}s){flag}")
 
@@ -1223,7 +1274,8 @@ def load_model(ckpt, threads=8, tta=False):
     torch.set_num_threads(threads)
     obj = torch.load(ckpt, map_location="cpu")
     arch = obj["arch"]
-    model = CatDogCNN(width=arch["width"], dropout=arch["dropout"])
+    model = build_model(kind=arch.get("kind", "cnn"), width=arch.get("width", 32),
+                        hidden=arch.get("hidden", 512), dropout=arch.get("dropout", 0.0))
     model.load_state_dict(obj["state"])
     model.eval()
     return model, obj
@@ -1346,6 +1398,118 @@ def stage_errors(ckpt=None, aug=""):
 
 
 # ==================================================================
+# 思考题 1：卷积层 vs 直接堆全连接层
+# ==================================================================
+def stage_cnn_vs_mlp():
+    section("思考题 1：卷积层 vs 巨型全连接层（同样的数据、优化器、轮数）")
+    cand = [("noaug", "CNN 1.108M，4 轮", "#4C72B0"),
+            ("mlp22", "MLP22 1.081M，4 轮 lr=1e-3", "#55A868"),
+            ("mlp512", "MLP512 25.17M，4 轮 lr=1e-3", "#C44E52"),
+            ("mlp512_lr12", "MLP512 25.17M，12 轮 lr=1e-4", "#937860"),
+            ("mlp22_lr12", "MLP22 1.081M，12 轮 lr=1e-4", "#CCB974")]
+    runs = [(t, n, c, _load_run(t)) for t, n, c in cand]
+    have = [(t, n, c, r) for t, n, c, r in runs if r]
+    if not have:
+        print("  还没有对照实验记录，先跑：")
+        print("    --stages train --tag noaug   --arch cnn --aug none --epochs 4")
+        print("    --stages train --tag mlp22   --arch mlp --hidden 22  --aug none --epochs 4")
+        print("    --stages train --tag mlp512  --arch mlp --hidden 512 --aug none --epochs 4")
+        return
+
+    lines = []
+    for tag, name, _, r in have:
+        a = r["args"]
+        best = max(e["va_acc"] for e in r["epochs"])
+        secs = float(np.median([e["sec"] for e in r["epochs"]]))   # 取中位数，个别轮次被机器卡顿带偏也不受影响
+        n_par = sum(p.numel() for p in build_model(
+            kind=a.get("arch", "cnn"), width=a.get("width", 32),
+            hidden=a.get("hidden", 512)).parameters())
+        # 早期几次训练的 json 里没有 arch/lr/threads 这些字段（加对照实验之前跑的），给默认值
+        lines.append((tag, a.get("arch", "cnn"), n_par, best, secs, r["epochs"][-1]["tr_acc"],
+                      len(r["epochs"]), a.get("lr", 1e-3), a.get("threads", 14)))
+    print(f"  {'tag':<14}{'结构':<5}{'参数量':>10}{'轮数':>5}{'lr':>8}{'最好验证':>11}"
+          f"{'训练准确率':>12}{'每轮秒':>8}")
+    for tag, arch, n_par, best, secs, tr_acc, n_ep, lr, th in lines:
+        print(f"  {tag:<14}{arch:<5}{(n_par or 0) / 1e6:>9.3f}M{n_ep:>5d}{lr:>8.0e}"
+              f"{best:>11.4f}{tr_acc:>12.4f}{secs:>8.1f}")
+
+    fig = plt.figure(figsize=(16, 9))
+    gs = fig.add_gridspec(2, 3, hspace=0.38, wspace=0.28)
+    ax = fig.add_subplot(gs[0, 0])
+    for tag, name, color, r in have:
+        ax.plot([e["epoch"] for e in r["epochs"]], [e["va_acc"] for e in r["epochs"]],
+                "-o", ms=4, color=color, label=name.replace("\n", " "))
+    ax.set_title("验证集准确率", fontsize=11)
+    ax.set_xlabel("epoch")
+    ax.set_ylabel("accuracy")
+    ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
+    ax.legend(fontsize=8)
+
+    ax = fig.add_subplot(gs[0, 1])
+    for tag, name, color, r in have:
+        ax.plot([e["epoch"] for e in r["epochs"]], [e["tr_acc"] for e in r["epochs"]],
+                "-o", ms=4, color=color, label=name.replace("\n", " "))
+    ax.set_title("训练集准确率（越高越容易过拟合）", fontsize=11)
+    ax.set_xlabel("epoch")
+    ax.set_ylabel("accuracy")
+    ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
+    ax.legend(fontsize=8)
+
+    ax = fig.add_subplot(gs[0, 2])
+    for tag, name, color, r in have:
+        gap = [e["tr_acc"] - e["va_acc"] for e in r["epochs"]]
+        ax.plot([e["epoch"] for e in r["epochs"]], gap, "-o", ms=4, color=color,
+                label=name.replace("\n", " "))
+    ax.axhline(0, color="gray", lw=0.8)
+    ax.set_title("过拟合差距 = 训练准确率 − 验证准确率", fontsize=11)
+    ax.set_xlabel("epoch")
+    ax.set_ylabel("差距")
+    ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
+    ax.legend(fontsize=8)
+
+    ax = fig.add_subplot(gs[1, 0])
+    xs = np.arange(len(lines))
+    ax.bar(xs, [L[2] / 1e6 for L in lines],
+           color=[c for _, _, c, _ in have])
+    ax.set_yscale("log")
+    ax.set_ylim(0.5, 300)
+    ax.set_xticks(xs)
+    ax.set_xticklabels([L[0] for L in lines], fontsize=7.5, rotation=12)
+    for x, L in zip(xs, lines):
+        ax.text(x, L[2] / 1e6, f"{L[2] / 1e6:.2f}M\n验证 {L[3]:.4f}", ha="center",
+                va="bottom", fontsize=8)
+    ax.set_title("参数量（对数轴）与验证准确率", fontsize=11)
+    ax.set_ylabel("参数量（百万）")
+
+    ax = fig.add_subplot(gs[1, 1])
+    same = [(t, s, c) for (t, _, _, _, s, _, n_ep, _, th), (_, _, c, _) in zip(lines, have)
+            if n_ep == 4]                       # 只比"同样 4 轮"的三次，机器状态一致，耗时可横向比
+    ax.bar([t for t, _, c in same], [s for _, s, _ in same],
+           color=[c for _, _, c in same])
+    for x, (_, s, _) in enumerate(same):
+        ax.text(x, s, f"{s:.0f}s", ha="center", va="bottom", fontsize=9)
+    ax.set_title("每轮训练耗时中位数（只列同样 4 轮、14 线程的三次）", fontsize=10)
+    ax.set_ylabel("秒")
+
+    ax = fig.add_subplot(gs[1, 2])
+    ax.axis("off")
+    rows = [[t, a, f"{(n_par or 0) / 1e6:.3f}M", str(n_ep), f"{lr:.0e}", f"{best:.4f}",
+             f"{tr_acc:.4f}"] for t, a, n_par, best, secs, tr_acc, n_ep, lr, th in lines]
+    tbl = ax.table(cellText=rows,
+                   colLabels=["tag", "结构", "参数量", "轮数", "lr", "验证准确率", "训练准确率"],
+                   loc="center", cellLoc="center",
+                   colWidths=[0.16, 0.09, 0.13, 0.08, 0.1, 0.16, 0.16])
+    tbl.auto_set_font_size(False)
+    tbl.set_fontsize(7.5)
+    tbl.scale(1, 1.5)
+    fig.suptitle("思考题 1：卷积层 vs 把图片铺平后接巨型全连接层（全量训练集、无增强；"
+                 "前两组同为 4 轮 / lr=1e-3，后两组是给 MLP 调小学习率并训练 12 轮）", fontsize=13)
+    fig.savefig(_os.path.join(HERE, "14_cnn_vs_mlp.png"), dpi=140, bbox_inches="tight")
+    plt.close(fig)
+    print("  已保存 14_cnn_vs_mlp.png")
+
+
+# ==================================================================
 # 对比：若干模型在测试集上的表现（任务 7 用）
 # ==================================================================
 def stage_compare(tags=("noaug", "final"), threads=12):
@@ -1404,7 +1568,7 @@ def stage_compare(tags=("noaug", "final"), threads=12):
 # 命令行入口
 # ==================================================================
 ALL_STAGES = ["cache", "explore", "preprocess", "arch", "features", "augment",
-              "train", "report", "errors", "compare"]
+              "train", "report", "errors", "compare", "cnnmlp"]
 
 
 def main():
@@ -1421,6 +1585,9 @@ def main():
     ap.add_argument("--dropout", type=float, default=0.0)
     ap.add_argument("--ls", type=float, default=0.0, help="CrossEntropyLoss 的 label_smoothing")
     ap.add_argument("--width", type=int, default=32, help="第一个卷积块的通道数")
+    ap.add_argument("--arch", default="cnn", choices=["cnn", "mlp"],
+                    help="cnn=卷积网络；mlp=直接铺平后接全连接层（思考题 1 的对照）")
+    ap.add_argument("--hidden", type=int, default=512, help="arch=mlp 时隐藏层的宽度")
     ap.add_argument("--batch", type=int, default=64)
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--threads", type=int, default=8, help="torch 的 CPU 线程数")
@@ -1457,6 +1624,8 @@ def main():
             stage_errors(ckpt=args.ckpt)
         elif st == "compare":
             stage_compare(threads=args.threads)
+        elif st == "cnnmlp":
+            stage_cnn_vs_mlp()
     print(f"\n全部完成，总耗时 {(time.time() - t0) / 60:.1f} 分钟")
 
 
