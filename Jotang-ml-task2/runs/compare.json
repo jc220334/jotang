@@ -1,0 +1,25 @@
+{
+  "noaug": {
+    "acc": 0.8856609808102346,
+    "acc_tta": 0.8981876332622601,
+    "params": 1107554,
+    "val_best": 0.8834044823906083,
+    "epochs": 4,
+    "aug": ""
+  },
+  "final": {
+    "acc": 0.8688699360341151,
+    "acc_tta": 0.8718017057569296,
+    "params": 1107554,
+    "val_best": 0.8641942369263608,
+    "epochs": 8,
+    "aug": "flip,crop,color"
+  },
+  "compare": {
+    "noaug_wrong": 382,
+    "final_wrong": 481,
+    "both_wrong": 215,
+    "fixed": 167,
+    "broken": 266
+  }
+}

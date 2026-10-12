@@ -10,5 +10,8 @@
       "args": ["-NoProfile"]
     }
   },
-  "terminal.integrated.defaultProfile.windows": "PowerShell (跳过 profile)"
+  "terminal.integrated.defaultProfile.windows": "PowerShell (跳过 profile)",
+  "terminal.integrated.env.windows": {
+    "PATH": "D:\\python\\envs\\jotang-ml\\Library\\bin;D:\\python\\envs\\jotang-ml\\Scripts;D:\\python\\envs\\jotang-ml;${env:PATH}"
+  }
 }
