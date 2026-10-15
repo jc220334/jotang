@@ -1,0 +1,221 @@
+
+==== Task 5 · CLIP 图文配对（只做推理，不训练） ============================================
+Python 3.11.16 | torch 2.6.0+cpu | numpy 2.4.6 | device cpu
+权重来自官方公开 checkpoint（~/.cache/clip/RN50.pt），加载耗时 2.2 s
+[figure] C:\Users\wjc\Documents\ChatGPT\python\jotang\Jotang-ml-task5\00_image_text_pairs.png
+
+==== exp0 · 加载 CLIP（官方实现 + 公开权重） =============================================
+clip 包位置        : D:\python\envs\jotang-ml\Lib\site-packages\clip\__init__.py
+官方仓库可选模型    : RN50, RN101, RN50x4, RN50x16, RN50x64, ViT-B/32, ViT-B/16, ViT-L/14, ViT-L/14@336px
+本次加载            : RN50（题目建议先用较小的 RN50）  设备 = cpu
+
+视觉编码器          : ModifiedResNet（ResNet50 + 注意力池化）
+  输入分辨率        : 224 × 224
+  输出特征维度      : 1024
+  参数量            : 38.3 M
+文本编码器          : Transformer 宽度 512，12 层，3.15 M/层（第 1 层）
+  上下文长度        : 77（<|startoftext|> + 正文 + <|endoftext|>，正文最多 75 个 token；不足补 0，超长直接截断）
+  参数量            : 63.7 M
+    （其中 12 层 Transformer 37.8 M ≈ 3.15 M/层 × 12；词表嵌入 + 位置编码 + 投影 25.9 M。合计 63.7 M，与论文里“63 M 参数、12 层、宽 512、8 头”的文本编码器对得上）
+  词表              : 49408 = 256 个字节 token + 49152 个 BPE 合并（<|startoftext|>=49406, <|endoftext|>=49407）
+
+总计                : 102.0 M 参数（纯推理，不更新任何权重）
+可学习温度系数      : logit_scale = 1/0.07 -> 100.000（即 logits × 100 再进 softmax）
+
+==== exp1 · 提取两类特征，打印形状，然后 L2 归一化 ============================================
+先把 4 张图读进来（原图任意尺寸，预处理统一成 224×224）：
+  01_cat.jpg     原始尺寸 640×480  (0.31 M 像素, 169 KB)
+  02_bear.jpg    原始尺寸 586×640  (0.38 M 像素, 328 KB)
+  03_bus.jpg     原始尺寸 612×612  (0.37 M 像素, 135 KB)
+  04_cake.jpg    原始尺寸 640×427  (0.27 M 像素, 122 KB)
+
+图像张量（预处理后）: (4, 3, 224, 224)  dtype=torch.float32  取值区间 [-1.792, 2.146]（已按 ImageNet 均值/标准差归一化）
+图像特征            : (4, 1024)   （4 张图 × 1024 维）
+token id            : (4, 77)  （4 句 × 77 个位置；[49406=SOT, 0=EOT/0=padding]）
+文本特征            : (4, 1024)  （4 句 × 1024 维）
+
+看几个具体数字（第 1 张图 / 第 1 句的前 8 维）：
+  图像特征前 8 维 : -0.043  +0.057  -0.026  -0.004  +0.004  -0.021  +0.077  -0.013
+  文本特征前 8 维 : +0.132  +0.370  -0.319  -0.004  +0.044  +0.322  -0.167  +0.270
+
+L2 归一化（每个特征向量除以它自己的模长）：
+  图像特征模长 before: [2.19 2.1  2.48 2.06]
+  图像特征模长 after : [1. 1. 1. 1.]
+  文本特征模长 before: [ 8.44  9.9  10.12 10.21]
+  文本特征模长 after : [1. 1. 1. 1.]
+  归一化后 点积 与 余弦相似度 的最大差异: 5.55e-17  -> 单位向量上点积 ≡ 余弦
+  不归一化的点积 = 余弦 × (|img|·|txt|)：比值矩阵（每行 / 每列一个模长乘积）
+    [[18.4 21.6 22.1 22.3]
+ [17.7 20.8 21.2 21.4]
+ [20.9 24.6 25.1 25.3]
+ [17.4 20.4 20.9 21.1]]
+    参考: |img|·|txt| 的 4×4 乘积矩阵（应与上一行完全一致）
+    [[18.4 21.6 22.1 22.3]
+ [17.7 20.8 21.2 21.4]
+ [20.9 24.6 25.1 25.3]
+ [17.4 20.4 20.9 21.1]]
+[figure] C:\Users\wjc\Documents\ChatGPT\python\jotang\Jotang-ml-task5\02_l2_normalization.png
+
+==== exp2 · 4×4 余弦相似度矩阵（图 → 文 与 文 → 图） =======================================
+相似度矩阵（行 = 图片，列 = 文字；正确配对在对角线）：
+         T1      T2      T3      T4      
+01_cat   0.287   0.095   0.146   0.110   
+02_bear  0.052   0.250   0.093   0.123   
+03_bus   0.011   0.106   0.254   0.088   
+04_cake  0.043   0.093   0.085   0.266   
+
+对应的 4 句描述：
+  T1: two cats lying on a pink couch
+  T2: a large brown bear in the grass
+  T3: a red double-decker bus on the street
+  T4: a birthday cake with raspberries and blueberries
+
+逐张图检查（图 → 文 检索）：
+  01_cat   ✔ 正确描述排第 1：sim(correct)=+0.2867，最接近的错误描述 T3 sim=+0.1464，与第 1 名 T1 sim=+0.2867
+          排序: T1(+0.2867) > T3(+0.1464) > T4(+0.1096) > T2(+0.0946)
+  02_bear  ✔ 正确描述排第 1：sim(correct)=+0.2497，最接近的错误描述 T4 sim=+0.1231，与第 1 名 T2 sim=+0.2497
+          排序: T2(+0.2497) > T4(+0.1231) > T3(+0.0927) > T1(+0.0518)
+  03_bus   ✔ 正确描述排第 1：sim(correct)=+0.2545，最接近的错误描述 T2 sim=+0.1062，与第 1 名 T3 sim=+0.2545
+          排序: T3(+0.2545) > T2(+0.1062) > T4(+0.0880) > T1(+0.0114)
+  04_cake  ✔ 正确描述排第 1：sim(correct)=+0.2660，最接近的错误描述 T2 sim=+0.0933，与第 1 名 T4 sim=+0.2660
+          排序: T4(+0.2660) > T2(+0.0933) > T3(+0.0853) > T1(+0.0432)
+
+逐句描述检查（文 → 图 检索）：
+  ✔ T1 “two cats lying on a pink couch” -> 第 1 名 01_cat(+0.2867)，第 2 名 02_bear(+0.0518)
+  ✔ T2 “a large brown bear in the grass” -> 第 1 名 02_bear(+0.2497)，第 2 名 03_bus(+0.1062)
+  ✔ T3 “a red double-decker bus on the street” -> 第 1 名 03_bus(+0.2545)，第 2 名 01_cat(+0.1464)
+  ✔ T4 “a birthday cake with raspberries and blueberries” -> 第 1 名 04_cake(+0.2660)，第 2 名 02_bear(+0.1231)
+
+图→文 准确率 4/4 = 100%；文→图 准确率 4/4 = 100%
+对角线的平均相似度 +0.2642；非对角线的平均相似度 +0.0871
+平均间隔 margin（正确 - 最接近的错句）= +0.1470
+[figure] C:\Users\wjc\Documents\ChatGPT\python\jotang\Jotang-ml-task5\01_similarity_heatmap.png
+
+==== exp3 · 故意加入“很像但关键内容错”的描述 ================================================
+错误类型：颜色错 / 数量错 / 动作/对象错；每张图都是 1 句正确 + 3 句错误，各自算相似度。
+
+[01_cat] 正确描述: “two cats lying on a pink couch”
+    正确 +0.2867 | 颜色错 +0.2693 | 数量错 +0.2799 | 动作/对象错 +0.2276
+      #1 正确       +0.2867  “two cats lying on a pink couch”  <-- 最像
+      #2 数量错      +0.2799  “three cats lying on a pink couch”
+      #3 颜色错      +0.2693  “two cats lying on a blue couch”
+      #4 动作/对象错   +0.2276  “two dogs lying on a pink couch”
+    => CLIP ✔ 分辨成功（正确句仍排第 1），最小间隔 +0.0068
+
+[02_bear] 正确描述: “a large brown bear in the grass”
+    正确 +0.2497 | 颜色错 +0.2031 | 数量错 +0.2218 | 动作/对象错 +0.2100
+      #1 正确       +0.2497  “a large brown bear in the grass”  <-- 最像
+      #2 数量错      +0.2218  “two large brown bears in the grass”
+      #3 动作/对象错   +0.2100  “a large brown bear swimming in a river”
+      #4 颜色错      +0.2031  “a large white polar bear in the grass”
+    => CLIP ✔ 分辨成功（正确句仍排第 1），最小间隔 +0.0279
+
+[03_bus] 正确描述: “a red double-decker bus on the street”
+    正确 +0.2545 | 颜色错 +0.2334 | 数量错 +0.2430 | 动作/对象错 +0.2214
+      #1 正确       +0.2545  “a red double-decker bus on the street”  <-- 最像
+      #2 数量错      +0.2430  “two red double-decker buses on the street”
+      #3 颜色错      +0.2334  “a blue double-decker bus on the street”
+      #4 动作/对象错   +0.2214  “a red double-decker train on the street”
+    => CLIP ✔ 分辨成功（正确句仍排第 1），最小间隔 +0.0115
+
+[04_cake] 正确描述: “a birthday cake with raspberries and blueberries”
+    正确 +0.2660 | 颜色错 +0.2109 | 数量错 +0.2317 | 动作/对象错 +0.2606
+      #1 正确       +0.2660  “a birthday cake with raspberries and blueberries”  <-- 最像
+      #2 动作/对象错   +0.2606  “a person eating a birthday cake with raspberries”
+      #3 数量错      +0.2317  “a birthday cake with a single raspberry”
+      #4 颜色错      +0.2109  “a birthday cake with chocolate frosting and blueberries”
+    => CLIP ✔ 分辨成功（正确句仍排第 1），最小间隔 +0.0054
+
+错误描述让相似度下降多少（正确 - 错误，正数表示 CLIP 认为错句更不像）：
+         颜色错     数量错     动作/对象错  
+01_cat   +0.017  +0.007  +0.059  
+02_bear  +0.047  +0.028  +0.040  
+03_bus   +0.021  +0.011  +0.033  
+04_cake  +0.055  +0.034  +0.005  
+
+按错误类型平均下降: 颜色错 +0.035，数量错 +0.020，动作/对象错 +0.034
+=> 平均来看 CLIP 对“颜色错”这类错误最敏感，对“数量错”最容易放过。
+   最容易被放过的三句（相似度几乎没掉）：
+     04_cake  动作/对象错   Δ=+0.0054  “a person eating a birthday cake with raspberries”
+     01_cat   数量错      Δ=+0.0068  “three cats lying on a pink couch”
+     03_bus   数量错      Δ=+0.0115  “two red double-decker buses on the street”
+   最敏感的两句：
+     01_cat   动作/对象错   Δ=+0.0591  “two dogs lying on a pink couch”
+     04_cake  颜色错      Δ=+0.0552  “a birthday cake with chocolate frosting and blueberries”
+   注意：4 张图的正确句全部排第 1，但“数量错”只差 0.007~0.034，蛋糕那张多出一个人都只差 0.005 —— 这一侧是 CLIP 的软肋。
+[figure] C:\Users\wjc\Documents\ChatGPT\python\jotang\Jotang-ml-task5\03_wrong_description.png
+
+------------------------------------------------------------------------------
+额外一测：句子意思被“改坏”但用词几乎不变时，CLIP 还看得见吗？
+[01_cat] 正确句 +0.2867
+    同义改写   +0.2858  Δ=+0.0008   “two cats resting on a pink sofa”
+    语序颠倒   +0.2786  Δ=+0.0080   “a pink couch lying on two cats”
+    否定句    +0.2422  Δ=+0.0445   “there are no cats on a pink couch”
+    对照：别的图片的 3 句正确描述，与这张图的相似度只有 +0.0946 ~ +0.1464
+    => 否定句 +0.2422 仍然高于任意一句“完全无关但描述准确”的句子（说明 CLIP 基本没处理否定）
+[02_bear] 正确句 +0.2497
+    同义改写   +0.2401  Δ=+0.0096   “a big brown bear standing in the grass”
+    语序颠倒   +0.2321  Δ=+0.0176   “the grass is in a large brown bear”
+    否定句    +0.2142  Δ=+0.0356   “there is no bear in the grass”
+    对照：别的图片的 3 句正确描述，与这张图的相似度只有 +0.0518 ~ +0.1231
+    => 否定句 +0.2142 仍然高于任意一句“完全无关但描述准确”的句子（说明 CLIP 基本没处理否定）
+[03_bus] 正确句 +0.2545
+    同义改写   +0.2529  Δ=+0.0016   “a red double-decker bus driving down the road”
+    语序颠倒   +0.2245  Δ=+0.0300   “the street is on a red double-decker bus”
+    否定句    +0.1892  Δ=+0.0653   “there is no bus on the street”
+    对照：别的图片的 3 句正确描述，与这张图的相似度只有 +0.0114 ~ +0.1062
+    => 否定句 +0.1892 仍然高于任意一句“完全无关但描述准确”的句子（说明 CLIP 基本没处理否定）
+[04_cake] 正确句 +0.2660
+    同义改写   +0.2672  Δ=-0.0012   “a birthday cake topped with raspberries and blueberries”
+    语序颠倒   +0.2266  Δ=+0.0394   “the berries are baking a birthday cake”
+    否定句    +0.2303  Δ=+0.0357   “a birthday cake without any berries”
+    对照：别的图片的 3 句正确描述，与这张图的相似度只有 +0.0432 ~ +0.0933
+    => 否定句 +0.2303 仍然高于任意一句“完全无关但描述准确”的句子（说明 CLIP 基本没处理否定）
+
+陷阱造成的相似度下降量（正确 - 陷阱）：
+         同义改写    语序颠倒    否定句     
+01_cat   +0.001  +0.008  +0.045  
+02_bear  +0.010  +0.018  +0.036  
+03_bus   +0.002  +0.030  +0.065  
+04_cake  -0.001  +0.039  +0.036  
+按陷阱类型平均: 同义改写 +0.003，语序颠倒 +0.024，否定句 +0.045
+=> 三类里掉分最少的是“同义改写”（平均 +0.0027）：把“lying on”换成“resting on”、“couch”换成“sofa”，相似度几乎不动 —— 说明它对齐的是“近义词的语义方向”，而不是在数词形。
+   真正的软肋是语序和否定：“语序颠倒”平均只掉 +0.0238，“否定句”平均只掉 +0.0453，而且 4 张图的否定句得分全部高于“别的图片的正确描述”（完全无关的句子）。
+   一句话总结：CLIP 的文本端更像“一袋词”——同义词能对上，语序和 not 基本不参与判断。
+[figure] C:\Users\wjc\Documents\ChatGPT\python\jotang\Jotang-ml-task5\05_text_traps.png
+
+==== exp4 · 零样本分类 / prompt 工程 / 温度系数 =========================================
+(1) 4 类零样本分类（模型从没见过这几张图，也没被训练过这 4 个类别）：
+    候选标签：a photo of a cat | a photo of a bear | a photo of a bus | a photo of a cake
+    01_cat.jpg     -> cat  （概率 0.931）  cat:0.931  bear:0.001  bus:0.024  cake:0.044
+    02_bear.jpg    -> bear （概率 1.000）  cat:0.000  bear:1.000  bus:0.000  cake:0.000
+    03_bus.jpg     -> bus  （概率 1.000）  cat:0.000  bear:0.000  bus:1.000  cake:0.000
+    04_cake.jpg    -> cake （概率 1.000）  cat:0.000  bear:0.000  bus:0.000  cake:1.000
+    => 分类准确率 100%
+
+(2) 零样本 vs 训练：同一个猫狗数据集（task2 拿它训过 CNN），这里从 Cat/Dog 各随机抽 12 张，不训练、不微调，直接把类别名当标签分类：
+    猫 100%（12 张），狗 100%（12 张），总体 24/24 = 100%
+    对照：task2 里从零训练的 CNN 在验证集上是 86.4%（8 epoch）。
+    一个是“训练 8 个 epoch 的 2 类分类器”，一个是“一句提示词都不改的零样本”，这就是图文对比学习的优势。
+
+(3) prompt 工程：类别含义完全一样，只是换说法 —— 零样本准确率会变吗？（用 4 类图 + 猫狗共 28 张图算平均准确率）
+    只用类别名                      准确率 43%
+    a photo of a {}            准确率 100%
+    a photo of the {}          准确率 100%
+    a close-up photo of a {}   准确率 54%
+    7 模板集成（论文做法）               准确率 82%
+    => 最好的是“a photo of a {}”（100%），最差的是“只用类别名”（43%）：类别含义一个字都没变，只换说法，差距就有这么大。
+       这里 7 模板集成反而低于最好的单模板：论文的模板集成赢在 80 个模板、而且里面没有“blurry / bad photo”这种自贬模板；
+       这 28 张图太容易（单模板已经 100%），集成只会被差模板往下拉 —— prompt 工程不是“模板越多越好”。
+
+(4) 温度系数：CLIP 把相似度乘以 exp(logit_scale)=100 再进 softmax。改成别的值会怎样？
+    （原始余弦相似度：最大 0.255，最小 0.100，跨度只有 0.155）
+    logit_scale=1       第 1 张图概率 [0.2588 0.2406 0.2495 0.2511]  平均最大概率 0.268  归一化熵 0.999  4 类准确率 100%
+    logit_scale=10      第 1 张图概率 [0.3436 0.1651 0.2379 0.2534]  平均最大概率 0.456  归一化熵 0.919  4 类准确率 100%
+    logit_scale=100     第 1 张图概率 [9.3148e-01 6.1247e-04 2.3619e-02 4.4287e-02]  平均最大概率 0.983  归一化熵 0.054  4 类准确率 100%
+    logit_scale=1000    第 1 张图概率 [1.0000e+00 1.5103e-32 1.0985e-16 5.9016e-14]  平均最大概率 1.000  归一化熵 0.000  4 类准确率 100%
+    注意最后一列：温度系数是单调变换，argmax（谁排第一）完全不变，所以单纯分类时改温度不影响结果；
+    它真正影响的是“多标签 / 阈值判断 / 多个 prompt 投票平均”这类需要概率数值的场景，以及训练时梯度的尺度。
+[figure] C:\Users\wjc\Documents\ChatGPT\python\jotang\Jotang-ml-task5\04_zero_shot_prompt.png
+==============================================================================
+全部完成，用时 28.8 s；数字已写入 results.json

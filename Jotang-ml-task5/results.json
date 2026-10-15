@@ -1,0 +1,418 @@
+{
+  "env": {
+    "python": "3.11.16",
+    "torch": "2.6.0+cpu",
+    "numpy": "2.4.6",
+    "device": "cpu"
+  },
+  "sources": {
+    "01_cat.jpg": "COCO val2017 数据集（http://cocodataset.org，标注 CC BY 4.0），图片 ID 000000039769，取自官方图床 http://images.cocodataset.org/val2017/000000039769.jpg",
+    "02_bear.jpg": "COCO val2017 数据集（http://cocodataset.org，标注 CC BY 4.0），图片 ID 000000000285，取自官方图床 http://images.cocodataset.org/val2017/000000000285.jpg",
+    "03_bus.jpg": "COCO val2017 数据集（http://cocodataset.org，标注 CC BY 4.0），图片 ID 000000001584，取自官方图床 http://images.cocodataset.org/val2017/000000001584.jpg",
+    "04_cake.jpg": "COCO val2017 数据集（http://cocodataset.org，标注 CC BY 4.0），图片 ID 000000002157，取自官方图床 http://images.cocodataset.org/val2017/000000002157.jpg"
+  },
+  "model": {
+    "name": "RN50",
+    "feature_dim": 1024,
+    "image_input_resolution": 224,
+    "text_context_length": 77,
+    "text_vocab_size": 49408,
+    "params_total_M": 102.01,
+    "params_visual_M": 38.32,
+    "params_text_M": 63.69,
+    "logit_scale": 100.0
+  },
+  "features": {
+    "image_tensor_shape": [
+      4,
+      3,
+      224,
+      224
+    ],
+    "image_feature_shape": [
+      4,
+      1024
+    ],
+    "text_token_shape": [
+      4,
+      77
+    ],
+    "text_feature_shape": [
+      4,
+      1024
+    ],
+    "image_norm_before": [
+      2.185,
+      2.097,
+      2.482,
+      2.063
+    ],
+    "text_norm_before": [
+      8.436,
+      9.9,
+      10.119,
+      10.21
+    ],
+    "norm_after": 1.0,
+    "max_abs_diff_dot_vs_cosine": 5.551115123125783e-17,
+    "cosine_before_norm_matches_after": true
+  },
+  "pairing": {
+    "captions": [
+      "two cats lying on a pink couch",
+      "a large brown bear in the grass",
+      "a red double-decker bus on the street",
+      "a birthday cake with raspberries and blueberries"
+    ],
+    "similarity_matrix": [
+      [
+        0.2867,
+        0.0946,
+        0.1464,
+        0.1096
+      ],
+      [
+        0.0518,
+        0.2497,
+        0.0927,
+        0.1231
+      ],
+      [
+        0.0114,
+        0.1062,
+        0.2545,
+        0.088
+      ],
+      [
+        0.0432,
+        0.0933,
+        0.0853,
+        0.266
+      ]
+    ],
+    "image_to_text_top1_hit": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "text_to_image_top1_hit": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "acc_image_to_text": 1.0,
+    "acc_text_to_image": 1.0,
+    "margins": [
+      0.1402,
+      0.1267,
+      0.1483,
+      0.1727
+    ],
+    "mean_diag": 0.2642,
+    "mean_offdiag": 0.0871
+  },
+  "wrong_description": {
+    "error_types": [
+      "颜色错",
+      "数量错",
+      "动作/对象错"
+    ],
+    "per_image": [
+      {
+        "image": "01_cat.jpg",
+        "correct": "two cats lying on a pink couch",
+        "correct_rank": 1,
+        "sims": {
+          "correct": 0.2867,
+          "颜色错": 0.2693,
+          "数量错": 0.2799,
+          "动作/对象错": 0.2276
+        },
+        "delta_vs_correct": {
+          "颜色错": 0.0174,
+          "数量错": 0.0068,
+          "动作/对象错": 0.0591
+        }
+      },
+      {
+        "image": "02_bear.jpg",
+        "correct": "a large brown bear in the grass",
+        "correct_rank": 1,
+        "sims": {
+          "correct": 0.2497,
+          "颜色错": 0.2031,
+          "数量错": 0.2218,
+          "动作/对象错": 0.21
+        },
+        "delta_vs_correct": {
+          "颜色错": 0.0467,
+          "数量错": 0.0279,
+          "动作/对象错": 0.0398
+        }
+      },
+      {
+        "image": "03_bus.jpg",
+        "correct": "a red double-decker bus on the street",
+        "correct_rank": 1,
+        "sims": {
+          "correct": 0.2545,
+          "颜色错": 0.2334,
+          "数量错": 0.243,
+          "动作/对象错": 0.2214
+        },
+        "delta_vs_correct": {
+          "颜色错": 0.0211,
+          "数量错": 0.0115,
+          "动作/对象错": 0.0331
+        }
+      },
+      {
+        "image": "04_cake.jpg",
+        "correct": "a birthday cake with raspberries and blueberries",
+        "correct_rank": 1,
+        "sims": {
+          "correct": 0.266,
+          "颜色错": 0.2109,
+          "数量错": 0.2317,
+          "动作/对象错": 0.2606
+        },
+        "delta_vs_correct": {
+          "颜色错": 0.0552,
+          "数量错": 0.0343,
+          "动作/对象错": 0.0054
+        }
+      }
+    ],
+    "delta_matrix": [
+      [
+        0.0174,
+        0.0068,
+        0.0591
+      ],
+      [
+        0.0467,
+        0.0279,
+        0.0398
+      ],
+      [
+        0.0211,
+        0.0115,
+        0.0331
+      ],
+      [
+        0.0552,
+        0.0343,
+        0.0054
+      ]
+    ],
+    "mean_delta_by_type": {
+      "颜色错": 0.0351,
+      "数量错": 0.0201,
+      "动作/对象错": 0.0343
+    },
+    "most_sensitive_type": "颜色错",
+    "least_sensitive_type": "数量错",
+    "all_correct_rank1": true,
+    "traps": {
+      "types": [
+        "同义改写",
+        "语序颠倒",
+        "否定句"
+      ],
+      "per_image": [
+        {
+          "image": "01_cat.jpg",
+          "correct": 0.2867,
+          "traps": {
+            "同义改写": 0.2858,
+            "语序颠倒": 0.2786,
+            "否定句": 0.2422
+          },
+          "delta_vs_correct": {
+            "同义改写": 0.0008,
+            "语序颠倒": 0.008,
+            "否定句": 0.0445
+          },
+          "cross_image_max": 0.1464
+        },
+        {
+          "image": "02_bear.jpg",
+          "correct": 0.2497,
+          "traps": {
+            "同义改写": 0.2401,
+            "语序颠倒": 0.2321,
+            "否定句": 0.2142
+          },
+          "delta_vs_correct": {
+            "同义改写": 0.0096,
+            "语序颠倒": 0.0176,
+            "否定句": 0.0356
+          },
+          "cross_image_max": 0.1231
+        },
+        {
+          "image": "03_bus.jpg",
+          "correct": 0.2545,
+          "traps": {
+            "同义改写": 0.2529,
+            "语序颠倒": 0.2245,
+            "否定句": 0.1892
+          },
+          "delta_vs_correct": {
+            "同义改写": 0.0016,
+            "语序颠倒": 0.03,
+            "否定句": 0.0653
+          },
+          "cross_image_max": 0.1062
+        },
+        {
+          "image": "04_cake.jpg",
+          "correct": 0.266,
+          "traps": {
+            "同义改写": 0.2672,
+            "语序颠倒": 0.2266,
+            "否定句": 0.2303
+          },
+          "delta_vs_correct": {
+            "同义改写": -0.0012,
+            "语序颠倒": 0.0394,
+            "否定句": 0.0357
+          },
+          "cross_image_max": 0.0933
+        }
+      ],
+      "delta_matrix": [
+        [
+          0.0008,
+          0.008,
+          0.0445
+        ],
+        [
+          0.0096,
+          0.0176,
+          0.0356
+        ],
+        [
+          0.0016,
+          0.03,
+          0.0653
+        ],
+        [
+          -0.0012,
+          0.0394,
+          0.0357
+        ]
+      ],
+      "mean_delta_by_type": {
+        "同义改写": 0.0027,
+        "语序颠倒": 0.0238,
+        "否定句": 0.0453
+      }
+    }
+  },
+  "zero_shot": {
+    "coco_labels": [
+      "a photo of a cat",
+      "a photo of a bear",
+      "a photo of a bus",
+      "a photo of a cake"
+    ],
+    "coco_probs": [
+      [
+        0.9315,
+        0.0006,
+        0.0236,
+        0.0443
+      ],
+      [
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.9999,
+        0.0
+      ],
+      [
+        0.0,
+        0.0002,
+        0.0,
+        0.9998
+      ]
+    ],
+    "coco_accuracy": 1.0,
+    "pet_accuracy": 1.0,
+    "pet_accuracy_per_class": {
+      "Cat": 1.0,
+      "Dog": 1.0
+    },
+    "pet_n": 24,
+    "cnn_task2_reference": 0.8642
+  },
+  "prompt_engineering": {
+    "只用类别名": 0.4286,
+    "a photo of a {}": 1.0,
+    "a photo of the {}": 1.0,
+    "a close-up photo of a {}": 0.5357,
+    "7 模板集成（论文做法）": 0.8214
+  },
+  "temperature": {
+    "cosine_range": [
+      0.0997,
+      0.2546
+    ],
+    "accuracy_by_scale": {
+      "1": 1.0,
+      "10": 1.0,
+      "100": 1.0,
+      "1000": 1.0
+    },
+    "curves": {
+      "1": {
+        "probs_img1": [
+          0.2588,
+          0.2406,
+          0.2495,
+          0.2511
+        ],
+        "mean_entropy": 0.9993,
+        "mean_max_prob": 0.2678
+      },
+      "10": {
+        "probs_img1": [
+          0.3436,
+          0.1651,
+          0.2379,
+          0.2534
+        ],
+        "mean_entropy": 0.9189,
+        "mean_max_prob": 0.4563
+      },
+      "100": {
+        "probs_img1": [
+          0.9315,
+          0.0006,
+          0.0236,
+          0.0443
+        ],
+        "mean_entropy": 0.0542,
+        "mean_max_prob": 0.9828
+      },
+      "1000": {
+        "probs_img1": [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mean_entropy": 0.0,
+        "mean_max_prob": 1.0
+      }
+    }
+  }
+}
